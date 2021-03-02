@@ -7,7 +7,10 @@ import datetime
 import math
 
 
-def load_csv(path_to_file, with_time=False) -> ty.Dict[ty.Any]:
+TList = ty.TypeVar(ty.List[ty.Union[float, int]])
+
+
+def load_csv(path_to_file, with_time=False) -> ty.Dict[str, ty.Any]:
     data = {}
     with open(path_to_file, newline="") as ifile:
         reader = csv.reader(ifile)
@@ -30,9 +33,6 @@ def load_csv(path_to_file, with_time=False) -> ty.Dict[ty.Any]:
     return data
 
 
-TList = ty.TypeVar(ty.List[ty.Optional[float, int]])
-
-
 class SSA:
     def __init__(self, source_data: TList, source_times: TList):
         self.__source = np.array(list(zip(source_times, source_data)))
@@ -44,7 +44,7 @@ class SSA:
         return self.__source[:, 0]
 
     @staticmethod
-    def normalize_data(data: TList) -> ty.Dict[ty.Any]:
+    def normalize_data(data: TList) -> ty.Dict[str, ty.Any]:
         norm_res = np.array(list())
         mean = np.mean(data)
         std = np.std(data)
@@ -53,7 +53,7 @@ class SSA:
 
         return {"data": norm_res, "mean": mean, "std": std}
 
-    def deconstruct(self, t=None) -> ty.Dict[ty.Any]:
+    def deconstruct(self, t=None) -> ty.Dict[str, ty.Any]:
         normalized = SSA.normalize_data(self.getValues())
         values = normalized["data"]
         N = len(values)
@@ -78,7 +78,7 @@ class SSA:
             "N": N,
         }
 
-    def recovered_data(self, t=None) -> ty.Dict[ty.Any]:
+    def recovered_data(self, t=None) -> ty.Dict[str, ty.Any]:
         data = self.deconstruct(t)
         cov_data = np.cov(data["matrix"].T)
         lambdas, vectors = np.linalg.eigh(cov_data)
@@ -160,7 +160,9 @@ class SSA:
             "dates": self.getKeys()[len_start:],
         }
 
-    def getPrediction(self, recovered_data: ty.Dict, horizon: int):
+    def getPrediction(
+        self, recovered_data: ty.Dict[str, ty.Any], horizon: int
+    ):
         v_r = recovered_data["v_r"]
         v_r_1 = v_r[:, :-1]
         v_r_row = v_r[:, -1]
