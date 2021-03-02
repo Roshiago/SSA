@@ -1,15 +1,13 @@
 import numpy as np
-import argparse
 import typing as ty
 import csv
 from matplotlib import pyplot as plt
 import time
 import datetime
 import math
-import random as rnd
 
 
-def load_csv(path_to_file, with_time=False):
+def load_csv(path_to_file, with_time=False) -> ty.Dict[ty.Any]:
     data = {}
     with open(path_to_file, newline="") as ifile:
         reader = csv.reader(ifile)
@@ -24,24 +22,29 @@ def load_csv(path_to_file, with_time=False):
                         data[columns[index]].append(item)
                 elif with_time and not index:
                     timestamp = time.mktime(
-                        datetime.datetime.strptime(item, "%Y-%m-%d").timetuple()
+                        datetime.datetime.strptime(
+                            item, "%Y-%m-%d"
+                        ).timetuple()
                     )
                     data[columns[index]].append(timestamp)
     return data
 
 
+TList = ty.TypeVar(ty.List[ty.Optional[float, int]])
+
+
 class SSA:
-    def __init__(self, source_data, source_times):
+    def __init__(self, source_data: TList, source_times: TList):
         self.__source = np.array(list(zip(source_times, source_data)))
 
-    def getValues(self):
+    def getValues(self) -> TList:
         return self.__source[:, 1]
 
-    def getKeys(self):
+    def getKeys(self) -> TList:
         return self.__source[:, 0]
 
     @staticmethod
-    def normalize_data(data):
+    def normalize_data(data: TList) -> ty.Dict[ty.Any]:
         norm_res = np.array(list())
         mean = np.mean(data)
         std = np.std(data)
@@ -50,7 +53,7 @@ class SSA:
 
         return {"data": norm_res, "mean": mean, "std": std}
 
-    def deconstruct(self, t=None):
+    def deconstruct(self, t=None) -> ty.Dict[ty.Any]:
         normalized = SSA.normalize_data(self.getValues())
         values = normalized["data"]
         N = len(values)
@@ -64,7 +67,7 @@ class SSA:
 
         new_sample = []
         for i in range(n):
-            new_sample.append(values[i:t + i])
+            new_sample.append(values[i: t + i])
 
         return {
             "source": values,
@@ -75,7 +78,7 @@ class SSA:
             "N": N,
         }
 
-    def recovered_data(self, t=None):
+    def recovered_data(self, t=None) -> ty.Dict[ty.Any]:
         data = self.deconstruct(t)
         cov_data = np.cov(data["matrix"].T)
         lambdas, vectors = np.linalg.eigh(cov_data)
@@ -87,7 +90,10 @@ class SSA:
                 first_non_negative = idx
                 break
 
-        lambdas, vectors = lambdas[first_non_negative:], vectors[first_non_negative:]
+        lambdas, vectors = (
+            lambdas[first_non_negative:],
+            vectors[first_non_negative:],
+        )
 
         sum_lambdas = sum(lambdas)
         variance_explained = []
@@ -136,7 +142,9 @@ class SSA:
             t_sum = []
 
             for i in range(N - s + 1):
-                t_sum.append(recovered_matrix[i + (s - n) - 1][n - i - 1] * std + mean)
+                t_sum.append(
+                    recovered_matrix[i + (s - n) - 1][n - i - 1] * std + mean
+                )
 
             element = 1 / (N - s + 1) * sum(t_sum)
             recovered_time_series.append(element)
@@ -149,24 +157,21 @@ class SSA:
             "n": n,
             "v_r": v_r,
             "lambdas": lambdas,
-            'dates': self.getKeys()[len_start:]
+            "dates": self.getKeys()[len_start:],
         }
 
-    def getPrediction(self, recovered_data, horizon):
+    def getPrediction(self, recovered_data: ty.Dict, horizon: int):
         v_r = recovered_data["v_r"]
         v_r_1 = v_r[:, :-1]
         v_r_row = v_r[:, -1]
         v_r_inv = 1 - v_r_row @ v_r_row.T
         coeff = (v_r_row @ v_r_1) / v_r_inv
-        length, = coeff.shape
+        (length,) = coeff.shape
         q = recovered_data["data"][-length:]
         predict = np.array([])
         right_side = horizon
         for i in range(right_side):
             elem = coeff @ q
-            # element = np.mean(elem[:t])
-            # predict = np.append(predict, element)
-            # q = np.append(q, element)
             predict = np.append(predict, elem)
             q = np.append(q, elem)
             q = q[1:]
@@ -190,14 +195,13 @@ def main():
     predict_length = int(data_length * predict_length)
     predict_data_length = data_length - predict_length
     data = d["Volume"][: predict_data_length + 1]
-    data_times = d["Date"][:predict_data_length + 1]
-    # predict_length = 10
+    data_times = d["Date"][: predict_data_length + 1]
     # start calculating ssa
     ssa = SSA(data, data_times)
 
     # recovered by pca
     recovered = ssa.recovered_data()
-    start_from = len(data) - recovered['N']
+    start_from = len(data) - recovered["N"]
     length = recovered["N"] + start_from - 1
     # show plot with data
     plt.plot(d["Date"][start_from:length], recovered["data"])
@@ -207,10 +211,12 @@ def main():
     # get prediction by predict_length
     prediction = ssa.getPrediction(recovered, predict_length)
 
-    end_index = len(d['Date'][length:])
+    end_index = len(d["Date"][length:])
     end_index_date = len(prediction[:end_index])
-    plt.plot(d['Date'][length:length + end_index_date], prediction[:end_index])
-    plt.plot(d['Date'][length:], d["Volume"][length:])
+    plt.plot(
+        d["Date"][length: length + end_index_date], prediction[:end_index]
+    )
+    plt.plot(d["Date"][length:], d["Volume"][length:])
     plt.show()
 
 
