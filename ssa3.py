@@ -27,10 +27,15 @@ def smooth(x, window_len=11, window="hanning"):
 
     s = np.r_[x[window_len - 1:0:-1], x, x[-1:-window_len:-1]]
 
-    if window == "flat":  # moving average
-        w = np.ones(window_len, "d")
-    else:
-        w = eval("np." + window + "(window_len)")
+    methods = {
+        "flat": lambda win_len: np.ones(window_len, "d"),  # moving average
+        "hanning": lambda win_len: np.hanning(win_len),
+        "hamming": lambda win_len: np.hamming(win_len),
+        "bartlett": lambda win_len: np.bartlett(win_len),
+        "blackman": lambda win_len: np.blackman(win_len),
+    }
+
+    w = methods[window](window_len)
 
     y = np.convolve(w / w.sum(), s, mode="valid")
     return y
