@@ -10,6 +10,32 @@ import math
 TList = ty.TypeVar(ty.List[ty.Union[float, int]])
 
 
+def smooth(x, window_len=11, window="hanning"):
+    if x.ndim != 1:
+        raise ValueError("smooth only accepts 1 dimension arrays.")
+
+    if x.size < window_len:
+        raise ValueError("Input vector needs to be bigger than window size.")
+
+    if window_len < 3:
+        return x
+
+    if window not in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
+        raise ValueError(
+            "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+        )
+
+    s = np.r_[x[window_len - 1:0:-1], x, x[-1:-window_len:-1]]
+
+    if window == "flat":  # moving average
+        w = np.ones(window_len, "d")
+    else:
+        w = eval("np." + window + "(window_len)")
+
+    y = np.convolve(w / w.sum(), s, mode="valid")
+    return y
+
+
 def load_csv(path_to_file, with_time=False) -> ty.Dict[str, ty.Any]:
     data = {}
     with open(path_to_file, newline="") as ifile:
@@ -110,10 +136,12 @@ class SSA:
 
         v_r = (vectors.T[:][:count_of_main_comp]).T
 
-        pca = data["matrix"][first_non_negative:].T @ v_r
+        pca = (
+            v_r.T @ data["matrix"][first_non_negative:]
+        )  # data["matrix"][first_non_negative:].T @ v_r
 
         _, columns = pca.shape
-        recovered_matrix = v_r[:columns] @ pca.T
+        recovered_matrix = v_r[:columns] @ pca
 
         # t = data['N'] - data['n']
         t, n = recovered_matrix.shape
@@ -188,7 +216,7 @@ def main():
     #     'Date': np.array([]),
     #     'Volume': np.array([])
     # }
-    # for i in range(500):
+    # for i in range(2000):
     #     d['Date'] = np.append(d['Date'], i)
     #     d['Volume'] = np.append(d['Volume'], math.sin(math.pi * i / 16))
 
@@ -203,22 +231,24 @@ def main():
 
     # recovered by pca
     recovered = ssa.recovered_data()
-    start_from = len(data) - recovered["N"]
+    start_from = abs(len(data) - recovered["N"])
     length = recovered["N"] + start_from - 1
     # show plot with data
-    plt.plot(d["Date"][start_from:length], recovered["data"])
     plt.plot(ssa.getKeys(), ssa.getValues())
+    plt.plot(d["Date"][start_from:length], recovered["data"])
+    plt.legend(["recovered data", "actual data"])
     plt.show()
 
     # get prediction by predict_length
     prediction = ssa.getPrediction(recovered, predict_length)
-
+    prediction = smooth(prediction)
     end_index = len(d["Date"][length:])
     end_index_date = len(prediction[:end_index])
     plt.plot(
         d["Date"][length: length + end_index_date], prediction[:end_index]
     )
     plt.plot(d["Date"][length:], d["Volume"][length:])
+    plt.legend(["predicted data", "actual data"])
     plt.show()
 
 
