@@ -4,3 +4,4 @@ __pycache__/
 dimploma_env/
 *.doc*
 .DS_Store
+.mypy_cache

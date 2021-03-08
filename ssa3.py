@@ -98,9 +98,10 @@ class SSA:
     def deconstruct(self, t: ty.Optional[int] = None) -> ty.Dict[str, ty.Any]:
         normalized = SSA.normalize_data(self.getValues())
         values = normalized["data"]
-        N = len(values)
-        if not t or t > (N + 1) / 2:
-            t = (N + 1) // 2
+        N: int = len(values)
+        s_t: int = (N + 1) // 2
+        if not t or t > s_t:
+            t = s_t
 
         n = N - t
         if N % 2 != 0:
@@ -139,9 +140,7 @@ class SSA:
         )
 
         sum_lambdas = sum(lambdas)
-        variance_explained = []
-        for i in lambdas:
-            variance_explained.append((i / sum_lambdas) * 100)
+        variance_explained = lambdas / sum_lambdas * 100
 
         # find count of main_components
         cumulative_variance_explained = np.cumsum(variance_explained)
@@ -155,43 +154,42 @@ class SSA:
 
         pca = (
             v_r.T @ data["matrix"][first_non_negative:]
-        )  # data["matrix"][first_non_negative:].T @ v_r
+        )
 
         _, columns = pca.shape
         recovered_matrix = v_r[:columns] @ pca
 
-        # t = data['N'] - data['n']
         t, n = recovered_matrix.shape
         N = t + n
         recovered_time_series = []
         mean, std = data["mean"], data["std"]
         for s in range(1, t):
-            t_sum = []
+            t_sum = 0
 
             for i in range(s):
-                t_sum.append(recovered_matrix[i][s - i] * std + mean)
+                t_sum += recovered_matrix[i][s - i] * std + mean
 
-            element = 1.0 / s * sum(t_sum)
+            element = 1.0 / s * t_sum
             recovered_time_series.append(element)
 
         for s in range(t, n + 1):
-            t_sum = []
+            t_sum = 0
 
             for i in range(t):
-                t_sum.append(recovered_matrix[i][s - i - 1] * std + mean)
+                t_sum += recovered_matrix[i][s - i - 1] * std + mean
 
-            element = 1.0 / t * sum(t_sum)
+            element = 1.0 / t * t_sum
             recovered_time_series.append(element)
 
         for s in range(n + 1, N):
-            t_sum = []
+            t_sum = 0
 
             for i in range(N - s + 1):
-                t_sum.append(
+                t_sum += (
                     recovered_matrix[i + (s - n) - 1][n - i - 1] * std + mean
                 )
 
-            element = 1 / (N - s + 1) * sum(t_sum)
+            element = 1 / (N - s + 1) * t_sum
             recovered_time_series.append(element)
 
         len_start = len(self.getValues()) - N
@@ -202,11 +200,12 @@ class SSA:
             "n": n,
             "v_r": v_r,
             "lambdas": lambdas,
-            "dates": self.getKeys()[len_start:],
+            "dates": self.getKeys()[len_start + 1:],
         }
 
+    @classmethod
     def getPrediction(
-        self, recovered_data: ty.Dict[str, ty.Any], horizon: int
+        cls, recovered_data: ty.Dict[str, ty.Any], horizon: int
     ):
         v_r = recovered_data["v_r"]
         v_r_1 = v_r[:, :-1]
@@ -228,7 +227,8 @@ class SSA:
 
 def main():
     # initialize starting data
-    d = load_csv("./AAPL.csv", True)
+    d = load_csv("./AAPL_5.csv", True)
+    # import math
     # d = {
     #     'Date': np.array([]),
     #     'Volume': np.array([])
@@ -248,11 +248,11 @@ def main():
 
     # recovered by pca
     recovered = ssa.recovered_data()
-    start_from = abs(len(data) - recovered["N"])
-    length = recovered["N"] + start_from - 1
+    # start_from = abs(len(d["Date"]) - len(recovered["dates"]))
+    length = predict_data_length  # predict_data_length - recovered["N"]
     # show plot with data
+    plt.plot(recovered["dates"], recovered["data"])
     plt.plot(ssa.getKeys(), ssa.getValues())
-    plt.plot(d["Date"][start_from:length], recovered["data"])
     plt.legend(["recovered data", "actual data"])
     plt.show()
 
