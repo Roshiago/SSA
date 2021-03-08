@@ -1,17 +1,19 @@
 import numpy as np
 import typing as ty
 import csv
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt  # type: ignore
 import time
 import datetime
-import math
-import fastnumbers as fn
+import fastnumbers as fn  # type: ignore
 
 
-TList = ty.TypeVar(ty.List[ty.Union[float, int]])
+TMatrix = ty.List[ty.Union[float, int]]
+TList = ty.List[float]
 
 
-def smooth(x: np.array, window_len: int = 11, window: str = "hanning"):
+def smooth(
+    x: np.ndarray, window_len: int = 11, window: str = "hanning"
+) -> np.ndarray:
     if x.ndim != 1:
         raise ValueError("smooth only accepts 1 dimension arrays.")
 
@@ -49,7 +51,7 @@ def load_csv(
     path_to_file: str, with_time: bool = False,
     row_count: int = -1, time_format: str = "%Y-%m-%d"
 ) -> ty.Dict[str, ty.Any]:
-    data = {}
+    data: ty.Dict[str, ty.Any] = dict()
     with open(path_to_file, newline="") as ifile:
         reader = csv.reader(ifile)
         columns = next(reader)
@@ -93,13 +95,12 @@ class SSA:
 
         return {"data": norm_res, "mean": mean, "std": std}
 
-    def deconstruct(self, t=None) -> ty.Dict[str, ty.Any]:
+    def deconstruct(self, t: ty.Optional[int] = None) -> ty.Dict[str, ty.Any]:
         normalized = SSA.normalize_data(self.getValues())
         values = normalized["data"]
         N = len(values)
         if not t or t > (N + 1) / 2:
-            t = (N + 1) / 2
-            t = math.floor(t)
+            t = (N + 1) // 2
 
         n = N - t
         if N % 2 != 0:
@@ -118,8 +119,10 @@ class SSA:
             "N": N,
         }
 
-    def recovered_data(self, t=None) -> ty.Dict[str, ty.Any]:
-        data = self.deconstruct(t)
+    def recovered_data(
+        self, custom_t: ty.Optional[int] = None
+    ) -> ty.Dict[str, ty.Any]:
+        data = self.deconstruct(custom_t)
         cov_data = np.cov(data["matrix"].T)
         lambdas, vectors = np.linalg.eigh(cov_data)
 
