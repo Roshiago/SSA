@@ -5,12 +5,13 @@ from matplotlib import pyplot as plt
 import time
 import datetime
 import math
+import fastnumbers as fn
 
 
 TList = ty.TypeVar(ty.List[ty.Union[float, int]])
 
 
-def smooth(x, window_len=11, window="hanning"):
+def smooth(x: np.array, window_len: int = 11, window: str = "hanning"):
     if x.ndim != 1:
         raise ValueError("smooth only accepts 1 dimension arrays.")
 
@@ -22,7 +23,10 @@ def smooth(x, window_len=11, window="hanning"):
 
     if window not in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
         raise ValueError(
-            "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+            (
+                "Window is on of 'flat',"
+                "'hanning', 'hamming', 'bartlett', 'blackman'"
+            )
         )
 
     s = np.r_[x[window_len - 1:0:-1], x, x[-1:-window_len:-1]]
@@ -41,7 +45,10 @@ def smooth(x, window_len=11, window="hanning"):
     return y
 
 
-def load_csv(path_to_file, with_time=False) -> ty.Dict[str, ty.Any]:
+def load_csv(
+    path_to_file: str, with_time: bool = False,
+    row_count: int = -1, time_format: str = "%Y-%m-%d"
+) -> ty.Dict[str, ty.Any]:
     data = {}
     with open(path_to_file, newline="") as ifile:
         reader = csv.reader(ifile)
@@ -50,17 +57,19 @@ def load_csv(path_to_file, with_time=False) -> ty.Dict[str, ty.Any]:
         for idx, line in enumerate(reader):
             for index, item in enumerate(line):
                 if index:
-                    try:
+                    if fn.isfloat(item):
                         data[columns[index]].append(float(item))
-                    except ValueError:
+                    else:
                         data[columns[index]].append(item)
                 elif with_time and not index:
                     timestamp = time.mktime(
                         datetime.datetime.strptime(
-                            item, "%Y-%m-%d"
+                            item, time_format
                         ).timetuple()
                     )
                     data[columns[index]].append(timestamp)
+            if idx == row_count:
+                break
     return data
 
 
